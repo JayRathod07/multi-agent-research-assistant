@@ -2,12 +2,14 @@
 
 A learning + portfolio project demonstrating **agent orchestration** in Python. Three specialized AI agents collaborate to research a topic, analyze findings, and produce a final report — all coordinated by a central Orchestrator.
 
+**Phase 2 ✅** — Now with a Streamlit Web UI and real web search via Tavily!
+
 ---
 
 ## What It Does
 
 You give it a topic. Then:
-1. **Researcher Agent** gathers key facts, trends, and data points
+1. **Researcher Agent** gathers key facts, trends, and data points (+ live web search in Phase 2)
 2. **Analyst Agent** extracts the 3 most important insights
 3. **Writer Agent** produces a clean, readable 3–4 paragraph report
 
@@ -23,11 +25,11 @@ User Input (Topic)
       ▼
  Orchestrator
       │
-      ├── 1. Researcher Agent ──► Research Notes
+      ├── 1. Researcher Agent ──► (Web Search) ──► Research Notes
       │
-      ├── 2. Analyst Agent ────► Key Insights
+      ├── 2. Analyst Agent ────────────────────► Key Insights
       │
-      └── 3. Writer Agent ─────► Final Report
+      └── 3. Writer Agent ─────────────────────► Final Report
 ```
 
 ---
@@ -37,60 +39,39 @@ User Input (Topic)
 ### Prerequisites
 - Python 3.8+
 - An [Anthropic API key](https://console.anthropic.com/)
+- *(Optional)* A [Tavily API key](https://app.tavily.com) for real web search (free tier: 1,000 searches/month)
 
 ### Installation
 
 ```bash
-# 1. Clone the repo (or download the project folder)
-cd "Multi-Agent Research Assistant"
+# 1. Clone the repo
+git clone https://github.com/JayRathod07/multi-agent-research-assistant.git
+cd multi-agent-research-assistant
 
 # 2. Install dependencies
 pip install -r requirements.txt
 
-# 3. Set up your API key
+# 3. Set up your API keys
 copy .env.example .env
-# Then open .env and replace `your_api_key_here` with your actual key
+# Then open .env and replace the placeholder values with your actual keys
 ```
 
 ---
 
 ## Usage
 
+### 🖥️ Streamlit Web UI (Phase 2 — Recommended)
+
+```bash
+streamlit run app.py
+```
+
+Your browser will open automatically at `http://localhost:8501`
+
+### ⌨️ CLI (Phase 1 — also works)
+
 ```bash
 python main.py
-```
-
-You will be prompted to enter a topic. Example:
-
-```
-==============================
- Multi-Agent Research Assistant
-==============================
-Enter a research topic: Artificial Intelligence in Healthcare
-
-[Researcher] Gathering information...
-[Analyst]    Extracting key insights...
-[Writer]     Generating report...
-
-============================================================
- RESEARCH NOTES
-============================================================
-- AI is being used to detect diseases earlier than traditional methods...
-- Machine learning models can analyse medical images with high accuracy...
-...
-
-============================================================
- KEY INSIGHTS
-============================================================
-1. AI accelerates diagnosis by analysing data at superhuman speed
-2. Personalised treatment plans powered by AI improve patient outcomes
-3. Ethical concerns around data privacy and algorithmic bias remain key challenges
-
-============================================================
- FINAL REPORT
-============================================================
-Artificial Intelligence is rapidly transforming healthcare...
-...
 ```
 
 ---
@@ -99,7 +80,8 @@ Artificial Intelligence is rapidly transforming healthcare...
 
 ```
 Multi-Agent Research Assistant/
-├── main.py              # CLI entry point
+├── app.py               # Streamlit Web UI (Phase 2)
+├── main.py              # CLI entry point (Phase 1)
 ├── orchestrator.py      # Pipeline coordination
 ├── api_client.py        # Claude API wrapper
 ├── retry_logic.py       # Retry utility
@@ -107,15 +89,17 @@ Multi-Agent Research Assistant/
 ├── exceptions.py        # Custom exceptions
 ├── error_messages.py    # Error message templates
 ├── agents/
-│   ├── researcher.py
+│   ├── researcher.py    # Researcher (+ web search in Phase 2)
 │   ├── analyst.py
 │   └── writer.py
+├── tools/
+│   └── search.py        # Tavily web search tool (Phase 2)
 ├── utils/
 │   └── logging_config.py
 ├── tests/
 │   ├── unit/
 │   └── integration/
-├── .env.example         # Copy → .env and add your key
+├── .env.example         # Copy → .env and add your keys
 ├── requirements.txt
 └── requirements-dev.txt
 ```
@@ -143,13 +127,14 @@ pytest tests/ --cov=. --cov-report=html
 |-------|--------|
 | Language | Python 3.8+ |
 | LLM | Claude (Anthropic SDK) |
-| UI | CLI (Phase 1), Streamlit (Phase 2) |
-| Testing | pytest + hypothesis |
+| Web Search | Tavily API (Phase 2) |
+| UI | Streamlit (Phase 2) / CLI (Phase 1) |
+| Testing | pytest |
 
 ---
 
 ## Roadmap
 
-- ✅ **Phase 1** — CLI pipeline with three agents (this version)
-- ⬜ **Phase 2** — Streamlit web UI + real web search
+- ✅ **Phase 1** — CLI pipeline with three agents
+- ✅ **Phase 2** — Streamlit web UI + real web search via Tavily
 - ⬜ **Phase 3** — Deployment to Streamlit Community Cloud
