@@ -1,0 +1,138 @@
+"""
+Multi-Agent Research Assistant — CLI Entry Point.
+
+Usage:
+    python main.py
+
+The user is prompted to enter a research topic. The pipeline runs three
+AI agents (Researcher, Analyst, Writer) in sequence and displays all
+intermediate outputs plus the final report.
+"""
+
+import os
+import sys
+
+from dotenv import load_dotenv
+
+from error_messages import ERROR_MESSAGES
+from exceptions import AuthenticationError, ValidationError
+from orchestrator import run_pipeline
+from utils.logging_config import setup_logging
+
+# ── Suppress console logging — keep terminal output clean for the user ──────
+# (All log messages still go to pipeline.log)
+load_dotenv()
+setup_logging(log_level="WARNING", log_file="pipeline.log")
+
+# ── Display helpers ──────────────────────────────────────────────────────────
+
+_WIDTH = 62
+_DIVIDER = "=" * _WIDTH
+
+
+def _section(title: str, content: str) -> None:
+    """Print a clearly labelled output section to the terminal."""
+    print(f"\n{_DIVIDER}")
+    print(f" {title}")
+    print(_DIVIDER)
+    print(content)
+
+
+def _banner() -> None:
+    print(_DIVIDER)
+    print(" Multi-Agent Research Assistant")
+    print(_DIVIDER)
+
+
+# ── Main ─────────────────────────────────────────────────────────────────────
+
+def main() -> None:
+    """CLI entry point: prompt → validate → run pipeline → display results."""
+    _banner()
+
+    # ── Get topic from user ──────────────────────────────────────────────────
+    try:
+        topic_input = input("\nEnter a research topic: ").strip()
+    except KeyboardInterrupt:
+        print("\n\nInterrupted. Exiting.")
+        sys.exit(0)
+
+    # ── Basic pre-validation (before hitting the orchestrator) ───────────────
+    if not topic_input:
+        print(f"\n{ERROR_MESSAGES['empty_topic']}")
+        sys.exit(1)
+
+    if len(topic_input) > 500:
+        print(f"\n{ERROR_MESSAGES['topic_too_long']}")
+        sys.exit(1)
+
+    print(f"\n{'─' * _WIDTH}")
+    print(" Running pipeline — this may take 10–20 seconds…")
+    print(f"{'─' * _WIDTH}")
+
+    # ── Execute pipeline ─────────────────────────────────────────────────────
+    try:
+        print("\n[1/3] Researcher  — gathering information…", flush=True)
+        # We import here so the progress messages appear before the API calls
+        result = None
+
+        # Run pipeline (blocking — agents execute sequentially inside)
+        try:
+            # Patch stdout progress via simple print then override
+            result = _run_with_progress(topic_input)
+        except ValidationError as exc:
+            print(f"\n❌ Invalid topic: {exc}")
+            sys.exit(1)
+        except AuthenticationError as exc:
+            print(f"\n❌ {exc}")
+            sys.exit(1)
+
+    except KeyboardInterrupt:
+        print("\n\nInterrupted during pipeline execution. Exiting.")
+        sys.exit(0)
+
+    if result is None:
+        print("\n❌ Pipeline did not return a result. Check pipeline.log for details.")
+        sys.exit(1)
+
+    # ── Display results ──────────────────────────────────────────────────────
+    print(f"\n\n{'=' * _WIDTH}")
+    print(" RESULTS")
+
+    _section("📋  RESEARCH NOTES", result.research_notes.content)
+    _section("💡  KEY INSIGHTS", result.insights.content)
+    _section("📄  FINAL REPORT", result.final_report.content)
+
+    # ── Show any errors / partial-failure warnings ───────────────────────────
+    if result.errors:
+        print(f"\n{'-' * _WIDTH}")
+        print(" ⚠️  Warnings / Errors:")
+        for err in result.errors:
+            print(f"   • {err}")
+
+    if result.failed_agents:
+        print(f"\n   ℹ️  Failed agents: {', '.join(result.failed_agents)}")
+        print("   Partial results shown above. See pipeline.log for details.")
+    else:
+        print(f"\n✅ Pipeline completed successfully!")
+
+    print(f"\n{'=' * _WIDTH}\n")
+
+
+def _run_with_progress(topic_input: str):
+    """
+    Thin wrapper: run the pipeline and print step-completion messages.
+
+    Because the orchestrator is synchronous (no async), we print the step
+    labels before calling run_pipeline and rely on the agent log messages
+    (in pipeline.log) for detailed progress.
+    """
+    print("[2/3] Analyst     — extracting insights…", flush=True)
+    print("[3/3] Writer      — generating report…", flush=True)
+    return run_pipeline(topic_input)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+
+if __name__ == "__main__":
+    main()
