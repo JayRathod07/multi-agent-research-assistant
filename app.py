@@ -1,5 +1,6 @@
 """
 Multi-Agent Research Assistant — Streamlit Web UI (Phase 2)
+Claude-inspired design with #00b4d8 accent color.
 
 Run with:
     streamlit run app.py
@@ -12,358 +13,560 @@ from datetime import datetime
 import streamlit as st
 from dotenv import load_dotenv
 
-# ── Bootstrap ──────────────────────────────────────────────────────────────────
 load_dotenv()
 
-# Must be the very first Streamlit call
 st.set_page_config(
-    page_title="Multi-Agent Research Assistant",
+    page_title="Research Assistant",
     page_icon="🔬",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# ── Custom CSS ─────────────────────────────────────────────────────────────────
+# ── Global CSS — Claude-inspired dark UI with #00b4d8 accent ───────────────────
 st.markdown(
     """
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-    /* ── Global ── */
+    /* ── Reset & base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     html, body, [class*="css"] {
-        font-family: 'Inter', sans-serif;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        -webkit-font-smoothing: antialiased;
     }
 
+    /* ── App background ── */
     .stApp {
-        background: linear-gradient(135deg, #0d0f1a 0%, #111827 50%, #0d1117 100%);
-        min-height: 100vh;
+        background-color: #1a1b1e;
     }
 
-    /* ── Hide default header ── */
+    /* Hide default Streamlit chrome */
     #MainMenu, header, footer { visibility: hidden; }
-
-    /* ── Hero Banner ── */
-    .hero-banner {
-        background: linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #1e3a5f 100%);
-        border: 1px solid rgba(99, 102, 241, 0.3);
-        border-radius: 20px;
-        padding: 2.5rem 3rem;
-        margin-bottom: 2rem;
-        position: relative;
-        overflow: hidden;
-    }
-    .hero-banner::before {
-        content: '';
-        position: absolute;
-        top: -50%;
-        right: -10%;
-        width: 400px;
-        height: 400px;
-        background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%);
-        border-radius: 50%;
-    }
-    .hero-title {
-        font-size: 2.4rem;
-        font-weight: 700;
-        background: linear-gradient(135deg, #a5b4fc, #60a5fa, #34d399);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        margin: 0;
-        line-height: 1.2;
-    }
-    .hero-subtitle {
-        color: #94a3b8;
-        font-size: 1.05rem;
-        margin-top: 0.6rem;
-        font-weight: 400;
-    }
-
-    /* ── Agent Step Cards ── */
-    .agent-card {
-        background: rgba(255,255,255,0.04);
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 14px;
-        padding: 1.2rem 1.4rem;
-        margin-bottom: 0.8rem;
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        transition: all 0.3s ease;
-    }
-    .agent-card.active {
-        border-color: rgba(99,102,241,0.6);
-        background: rgba(99,102,241,0.1);
-        box-shadow: 0 0 20px rgba(99,102,241,0.15);
-    }
-    .agent-card.done {
-        border-color: rgba(52,211,153,0.4);
-        background: rgba(52,211,153,0.07);
-    }
-    .agent-icon { font-size: 1.6rem; }
-    .agent-label { color: #e2e8f0; font-weight: 600; font-size: 0.95rem; }
-    .agent-desc { color: #64748b; font-size: 0.8rem; }
-
-    /* ── Input Section ── */
-    .input-section {
-        background: rgba(255,255,255,0.03);
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 16px;
-        padding: 2rem;
-        margin-bottom: 1.5rem;
-    }
-    .section-label {
-        color: #94a3b8;
-        font-size: 0.85rem;
-        font-weight: 600;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        margin-bottom: 0.8rem;
-    }
-
-    /* Override Streamlit input styles */
-    .stTextInput > div > div > input {
-        background: rgba(255,255,255,0.06) !important;
-        border: 1px solid rgba(255,255,255,0.15) !important;
-        border-radius: 12px !important;
-        color: #f1f5f9 !important;
-        font-size: 1.1rem !important;
-        padding: 0.9rem 1.2rem !important;
-        font-family: 'Inter', sans-serif !important;
-    }
-    .stTextInput > div > div > input:focus {
-        border-color: rgba(99,102,241,0.7) !important;
-        box-shadow: 0 0 0 3px rgba(99,102,241,0.15) !important;
-    }
-    .stTextInput > div > div > input::placeholder {
-        color: #475569 !important;
-    }
-
-    /* ── Run Button ── */
-    .stButton > button {
-        background: linear-gradient(135deg, #4f46e5, #7c3aed) !important;
-        color: white !important;
-        border: none !important;
-        border-radius: 12px !important;
-        padding: 0.75rem 2.5rem !important;
-        font-size: 1rem !important;
-        font-weight: 600 !important;
-        font-family: 'Inter', sans-serif !important;
-        letter-spacing: 0.02em !important;
-        transition: all 0.2s ease !important;
-        box-shadow: 0 4px 15px rgba(79,70,229,0.4) !important;
-        width: 100% !important;
-    }
-    .stButton > button:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 8px 25px rgba(79,70,229,0.5) !important;
-        background: linear-gradient(135deg, #5b52f0, #8b47f5) !important;
-    }
-    .stButton > button:active {
-        transform: translateY(0) !important;
-    }
-
-    /* ── Result Cards ── */
-    .result-card {
-        background: rgba(255,255,255,0.03);
-        border-radius: 16px;
-        padding: 1.8rem 2rem;
-        margin-bottom: 1.5rem;
-        border: 1px solid rgba(255,255,255,0.07);
-        position: relative;
-        overflow: hidden;
-    }
-    .result-card::before {
-        content: '';
-        position: absolute;
-        top: 0; left: 0; right: 0;
-        height: 3px;
-    }
-    .result-card.research::before  { background: linear-gradient(90deg, #60a5fa, #3b82f6); }
-    .result-card.insights::before  { background: linear-gradient(90deg, #a78bfa, #7c3aed); }
-    .result-card.report::before    { background: linear-gradient(90deg, #34d399, #059669); }
-
-    .result-header {
-        display: flex;
-        align-items: center;
-        gap: 0.8rem;
-        margin-bottom: 1.2rem;
-    }
-    .result-icon { font-size: 1.5rem; }
-    .result-title {
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: #f1f5f9;
-    }
-    .result-content {
-        color: #cbd5e1;
-        font-size: 0.97rem;
-        line-height: 1.8;
-        white-space: pre-wrap;
-        word-wrap: break-word;
-    }
-
-    /* ── Status Pill ── */
-    .status-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.4rem;
-        padding: 0.3rem 0.9rem;
-        border-radius: 999px;
-        font-size: 0.8rem;
-        font-weight: 600;
-    }
-    .status-success {
-        background: rgba(52,211,153,0.15);
-        color: #34d399;
-        border: 1px solid rgba(52,211,153,0.25);
-    }
-    .status-error {
-        background: rgba(239,68,68,0.15);
-        color: #f87171;
-        border: 1px solid rgba(239,68,68,0.25);
-    }
+    [data-testid="stDecoration"] { display: none; }
 
     /* ── Sidebar ── */
     [data-testid="stSidebar"] {
-        background: rgba(13,15,26,0.95) !important;
-        border-right: 1px solid rgba(255,255,255,0.07) !important;
+        background-color: #111214 !important;
+        border-right: 1px solid #2a2b2e !important;
     }
-    [data-testid="stSidebar"] .stMarkdown p,
-    [data-testid="stSidebar"] .stMarkdown li {
-        color: #94a3b8;
-        font-size: 0.88rem;
+    [data-testid="stSidebar"] > div:first-child {
+        padding-top: 1.5rem;
+    }
+
+    /* ── Sidebar scrollbar ── */
+    [data-testid="stSidebar"]::-webkit-scrollbar { width: 4px; }
+    [data-testid="stSidebar"]::-webkit-scrollbar-track { background: transparent; }
+    [data-testid="stSidebar"]::-webkit-scrollbar-thumb { background: #2a2b2e; border-radius: 4px; }
+
+    /* ── Main content padding ── */
+    .main .block-container {
+        padding: 2rem 2.5rem 3rem 2.5rem;
+        max-width: 900px;
+    }
+
+    /* ── Sidebar logo/brand ── */
+    .brand-wrap {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 1rem 1.5rem 1rem;
+        border-bottom: 1px solid #2a2b2e;
+        margin-bottom: 1.5rem;
+    }
+    .brand-icon {
+        width: 32px;
+        height: 32px;
+        background: #00b4d8;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        flex-shrink: 0;
+    }
+    .brand-name {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #f4f4f5;
+        line-height: 1.2;
+    }
+    .brand-version {
+        font-size: 0.7rem;
+        color: #52525b;
+        font-weight: 400;
+    }
+
+    /* ── Sidebar section titles ── */
+    .sidebar-section-title {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: #52525b;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 0 1rem;
+        margin-bottom: 0.6rem;
+    }
+
+    /* ── Pipeline step items ── */
+    .pipeline-step {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0.65rem 1rem;
+        border-radius: 8px;
+        margin: 0 0.4rem 0.25rem 0.4rem;
+        cursor: default;
+        transition: background 0.15s ease;
+    }
+    .pipeline-step.idle {
+        background: transparent;
+    }
+    .pipeline-step.active {
+        background: rgba(0, 180, 216, 0.12);
+        border: 1px solid rgba(0, 180, 216, 0.25);
+    }
+    .pipeline-step.done {
+        background: rgba(0, 180, 216, 0.06);
+    }
+    .step-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+    .step-dot.idle  { background: #3f3f46; }
+    .step-dot.active { background: #00b4d8; box-shadow: 0 0 0 3px rgba(0,180,216,0.2); }
+    .step-dot.done  { background: #00b4d8; }
+    .step-info {}
+    .step-name {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #d4d4d8;
+        line-height: 1.3;
+    }
+    .step-name.active { color: #00b4d8; }
+    .step-desc {
+        font-size: 0.75rem;
+        color: #52525b;
+        margin-top: 1px;
+    }
+    .step-check {
+        margin-left: auto;
+        color: #00b4d8;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    /* ── Sidebar history ── */
+    .history-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        margin: 0 0.4rem 0.15rem 0.4rem;
+        transition: background 0.15s;
+    }
+    .history-item:hover { background: #1e1f22; }
+    .history-dot { font-size: 0.55rem; color: #52525b; }
+    .history-text {
+        font-size: 0.8rem;
+        color: #71717a;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* ── Page header ── */
+    .page-header {
+        margin-bottom: 2.5rem;
+    }
+    .page-header-eyebrow {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #00b4d8;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin-bottom: 0.5rem;
+    }
+    .page-header-title {
+        font-size: 1.85rem;
+        font-weight: 700;
+        color: #f4f4f5;
+        line-height: 1.25;
+        margin-bottom: 0.6rem;
+    }
+    .page-header-subtitle {
+        font-size: 0.95rem;
+        color: #71717a;
+        line-height: 1.6;
+        max-width: 600px;
+    }
+
+    /* ── Input label ── */
+    .input-label {
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: #a1a1aa;
+        margin-bottom: 0.5rem;
+        letter-spacing: 0.01em;
+    }
+
+    /* ── Streamlit text input override ── */
+    .stTextInput > label { display: none !important; }
+    .stTextInput > div > div > input {
+        background: #111214 !important;
+        border: 1px solid #2a2b2e !important;
+        border-radius: 10px !important;
+        color: #f4f4f5 !important;
+        font-size: 0.975rem !important;
+        padding: 0.8rem 1.1rem !important;
+        font-family: 'Inter', sans-serif !important;
+        transition: border-color 0.15s, box-shadow 0.15s !important;
+    }
+    .stTextInput > div > div > input:focus {
+        border-color: #00b4d8 !important;
+        box-shadow: 0 0 0 3px rgba(0,180,216,0.12) !important;
+        outline: none !important;
+    }
+    .stTextInput > div > div > input::placeholder {
+        color: #3f3f46 !important;
+        font-style: italic;
+    }
+
+    /* ── Run button ── */
+    .stButton > button {
+        background: #00b4d8 !important;
+        color: #0d0d0e !important;
+        border: none !important;
+        border-radius: 10px !important;
+        padding: 0.78rem 1.6rem !important;
+        font-size: 0.9rem !important;
+        font-weight: 600 !important;
+        font-family: 'Inter', sans-serif !important;
+        letter-spacing: 0.01em !important;
+        transition: all 0.15s ease !important;
+        width: 100% !important;
+        cursor: pointer !important;
+    }
+    .stButton > button:hover {
+        background: #0096b4 !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 4px 16px rgba(0,180,216,0.35) !important;
+    }
+    .stButton > button:active {
+        transform: translateY(0) !important;
+        box-shadow: none !important;
     }
 
     /* ── Progress bar ── */
     .stProgress > div > div > div > div {
-        background: linear-gradient(90deg, #4f46e5, #7c3aed, #34d399) !important;
+        background: linear-gradient(90deg, #0096b4, #00b4d8, #48cae4) !important;
+        border-radius: 999px !important;
+        transition: width 0.4s ease !important;
+    }
+    .stProgress > div > div {
+        background: #2a2b2e !important;
         border-radius: 999px !important;
     }
 
-    /* ── Metrics ── */
-    [data-testid="metric-container"] {
-        background: rgba(255,255,255,0.04);
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 12px;
-        padding: 1rem;
+    /* ── Status text ── */
+    .status-line {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.85rem;
+        color: #71717a;
+        padding: 0.6rem 0;
     }
-    [data-testid="metric-container"] label { color: #64748b !important; }
+    .status-dot-pulse {
+        width: 7px;
+        height: 7px;
+        background: #00b4d8;
+        border-radius: 50%;
+        flex-shrink: 0;
+        animation: pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* ── Result section ── */
+    .result-section {
+        margin-top: 2rem;
+    }
+    .result-section-divider {
+        height: 1px;
+        background: #2a2b2e;
+        margin: 2rem 0;
+    }
+
+    /* ── Result card ── */
+    .result-card {
+        background: #111214;
+        border: 1px solid #2a2b2e;
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 1.25rem;
+    }
+    .result-card-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 1rem 1.4rem;
+        border-bottom: 1px solid #2a2b2e;
+    }
+    .result-card-accent {
+        width: 3px;
+        height: 20px;
+        border-radius: 2px;
+        flex-shrink: 0;
+    }
+    .accent-research { background: #00b4d8; }
+    .accent-insights  { background: #48cae4; }
+    .accent-report    { background: #90e0ef; }
+
+    .result-card-title {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #a1a1aa;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+    .result-card-badge {
+        margin-left: auto;
+        font-size: 0.7rem;
+        font-weight: 500;
+        color: #00b4d8;
+        background: rgba(0,180,216,0.1);
+        padding: 2px 8px;
+        border-radius: 999px;
+        border: 1px solid rgba(0,180,216,0.2);
+    }
+    .result-card-body {
+        padding: 1.3rem 1.4rem;
+    }
+    .result-card-content {
+        font-size: 0.925rem;
+        line-height: 1.85;
+        color: #d4d4d8;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-weight: 400;
+    }
+
+    /* ── Metrics row ── */
+    .metrics-row {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 1.5rem;
+    }
+    .metric-chip {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: #111214;
+        border: 1px solid #2a2b2e;
+        border-radius: 8px;
+        padding: 0.5rem 0.9rem;
+        font-size: 0.8rem;
+        color: #71717a;
+    }
+    .metric-chip-value {
+        color: #00b4d8;
+        font-weight: 600;
+    }
+
+    /* ── Streamlit metric override ── */
+    [data-testid="metric-container"] {
+        background: #111214;
+        border: 1px solid #2a2b2e;
+        border-radius: 10px;
+        padding: 0.85rem 1rem;
+    }
+    [data-testid="metric-container"] label {
+        color: #52525b !important;
+        font-size: 0.75rem !important;
+        font-weight: 500 !important;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
     [data-testid="metric-container"] [data-testid="stMetricValue"] {
-        color: #f1f5f9 !important;
+        color: #f4f4f5 !important;
+        font-size: 1.3rem !important;
+        font-weight: 600 !important;
     }
 
     /* ── Download button ── */
     [data-testid="stDownloadButton"] > button {
-        background: rgba(52,211,153,0.15) !important;
-        color: #34d399 !important;
-        border: 1px solid rgba(52,211,153,0.3) !important;
-        border-radius: 10px !important;
-        font-weight: 600 !important;
-        width: 100% !important;
-        transition: all 0.2s !important;
+        background: transparent !important;
+        color: #00b4d8 !important;
+        border: 1px solid rgba(0,180,216,0.35) !important;
+        border-radius: 8px !important;
+        font-size: 0.85rem !important;
+        font-weight: 500 !important;
+        padding: 0.5rem 1.2rem !important;
+        transition: all 0.15s !important;
+        width: auto !important;
     }
     [data-testid="stDownloadButton"] > button:hover {
-        background: rgba(52,211,153,0.25) !important;
-        transform: translateY(-1px) !important;
+        background: rgba(0,180,216,0.08) !important;
+        border-color: #00b4d8 !important;
     }
 
-    /* ── Divider ── */
-    hr { border-color: rgba(255,255,255,0.07) !important; }
-
-    /* ── Warning / Error boxes ── */
-    .stAlert {
-        border-radius: 12px !important;
+    /* ── Alert/error boxes ── */
+    [data-testid="stAlert"] {
+        border-radius: 10px !important;
         border: none !important;
+        font-size: 0.9rem !important;
     }
 
     /* ── Expander ── */
-    .streamlit-expanderHeader {
-        background: rgba(255,255,255,0.04) !important;
+    [data-testid="stExpander"] {
+        background: #111214 !important;
+        border: 1px solid #2a2b2e !important;
         border-radius: 10px !important;
-        color: #e2e8f0 !important;
-        font-weight: 600 !important;
+    }
+    .streamlit-expanderHeader {
+        color: #a1a1aa !important;
+        font-weight: 500 !important;
+        font-size: 0.875rem !important;
+    }
+
+    /* ── Divider ── */
+    hr { border-color: #2a2b2e !important; margin: 1.5rem 0 !important; }
+
+    /* ── Success message ── */
+    .success-bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: rgba(0,180,216,0.08);
+        border: 1px solid rgba(0,180,216,0.2);
+        border-radius: 10px;
+        padding: 0.75rem 1.1rem;
+        font-size: 0.875rem;
+        color: #00b4d8;
+        font-weight: 500;
+        margin-bottom: 1.5rem;
     }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
+# ── Session State Init ─────────────────────────────────────────────────────────
+pipeline_steps = [
+    ("Researcher", "Gathers facts & live data"),
+    ("Analyst",    "Extracts key insights"),
+    ("Writer",     "Drafts the final report"),
+]
+if "step_states" not in st.session_state:
+    st.session_state.step_states = {name: "idle" for name, _ in pipeline_steps}
+if "history" not in st.session_state:
+    st.session_state.history = []
+if "last_result" not in st.session_state:
+    st.session_state.last_result = None
+
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("## 🔬 Research Assistant")
-    st.markdown("---")
+    # Brand
+    st.markdown(
+        """
+        <div class="brand-wrap">
+            <div class="brand-icon">🔬</div>
+            <div>
+                <div class="brand-name">Research Assistant</div>
+                <div class="brand-version">Phase 2 · Multi-Agent</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    # Pipeline steps
-    st.markdown("### Pipeline")
-    pipeline_steps = [
-        ("🔍", "Researcher", "Gathers facts & data"),
-        ("💡", "Analyst", "Extracts key insights"),
-        ("✍️", "Writer", "Drafts the final report"),
-    ]
-
-    step_states = st.session_state.get("step_states", {s[1]: "idle" for s in pipeline_steps})
-
-    for icon, name, desc in pipeline_steps:
-        state = step_states.get(name, "idle")
-        css_class = "agent-card active" if state == "active" else ("agent-card done" if state == "done" else "agent-card")
-        icon_display = "⏳" if state == "active" else ("✅" if state == "done" else icon)
+    # Pipeline status
+    st.markdown('<div class="sidebar-section-title">Pipeline</div>', unsafe_allow_html=True)
+    for name, desc in pipeline_steps:
+        state = st.session_state.step_states.get(name, "idle")
+        check = "✓" if state == "done" else ("›" if state == "active" else "")
+        name_class = "step-name active" if state == "active" else "step-name"
         st.markdown(
             f"""
-            <div class="{css_class}">
-                <div class="agent-icon">{icon_display}</div>
-                <div>
-                    <div class="agent-label">{name}</div>
-                    <div class="agent-desc">{desc}</div>
+            <div class="pipeline-step {state}">
+                <div class="step-dot {state}"></div>
+                <div class="step-info">
+                    <div class="{name_class}">{name}</div>
+                    <div class="step-desc">{desc}</div>
                 </div>
+                <div class="step-check">{check}</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-    st.markdown("---")
-    st.markdown("### ℹ️ About")
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # Recent topics
+    if st.session_state.history:
+        st.markdown('<div class="sidebar-section-title">Recent Topics</div>', unsafe_allow_html=True)
+        for h in reversed(st.session_state.history[-6:]):
+            label = h[:34] + "…" if len(h) > 34 else h
+            st.markdown(
+                f"""
+                <div class="history-item">
+                    <div class="history-dot">●</div>
+                    <div class="history-text">{label}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+    # Divider + info
+    st.markdown("<br>", unsafe_allow_html=True)
     st.markdown(
-        "Three AI agents collaborate to research any topic and produce a structured report.\n\n"
-        "**Powered by:** Claude (Anthropic)\n\n"
-        "**Web Search:** Tavily API *(optional)*"
+        """
+        <div style="padding: 0 1rem; border-top: 1px solid #2a2b2e; padding-top: 1.2rem;">
+            <div style="font-size:0.75rem; color:#3f3f46; line-height:1.7;">
+                Powered by Claude (Anthropic)<br>
+                Web Search via Tavily API
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-    st.markdown("---")
-    # Show past topics in session
-    if "history" in st.session_state and st.session_state.history:
-        st.markdown("### 🕑 Recent Topics")
-        for h in reversed(st.session_state.history[-5:]):
-            st.markdown(f"- {h}")
+# ── Main Layout ────────────────────────────────────────────────────────────────
 
-# ── Main Content ───────────────────────────────────────────────────────────────
-
-# Hero Banner
+# Page header
 st.markdown(
     """
-    <div class="hero-banner">
-        <div class="hero-title">🔬 Multi-Agent Research Assistant</div>
-        <div class="hero-subtitle">
-            Enter any topic — Researcher, Analyst & Writer agents collaborate to deliver a complete report.
+    <div class="page-header">
+        <div class="page-header-eyebrow">Multi-Agent AI</div>
+        <div class="page-header-title">Research Assistant</div>
+        <div class="page-header-subtitle">
+            Enter any topic and three specialized AI agents will collaborate
+            to gather information, extract insights, and write a complete report.
         </div>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-# ── Input Section ──────────────────────────────────────────────────────────────
-st.markdown('<div class="section-label">Research Topic</div>', unsafe_allow_html=True)
+# Input area
+st.markdown('<div class="input-label">Research Topic</div>', unsafe_allow_html=True)
 
-col_input, col_btn = st.columns([4, 1])
-with col_input:
+col_in, col_btn = st.columns([5, 1])
+with col_in:
     topic_input = st.text_input(
-        label="topic",
+        "topic",
         label_visibility="collapsed",
-        placeholder="e.g.  Artificial Intelligence in Healthcare, Quantum Computing, Climate Change…",
-        key="topic_input",
+        placeholder="e.g. Artificial Intelligence in Healthcare",
+        key="topic_field",
     )
 with col_btn:
-    run_clicked = st.button("🚀 Run", key="run_button", use_container_width=True)
+    run_clicked = st.button("Run →", key="run_btn", use_container_width=True)
 
 st.markdown("---")
 
@@ -372,145 +575,173 @@ if run_clicked:
     topic = topic_input.strip()
 
     if not topic:
-        st.error("⚠️  Please enter a research topic before running.")
+        st.error("Please enter a research topic before running.")
         st.stop()
-
     if len(topic) > 500:
-        st.error("⚠️  Topic is too long. Please keep it under 500 characters.")
+        st.error("Topic is too long — please keep it under 500 characters.")
         st.stop()
 
-    # Track history
-    if "history" not in st.session_state:
-        st.session_state.history = []
+    # Update history
     if topic not in st.session_state.history:
         st.session_state.history.append(topic)
 
-    # Reset step states
-    st.session_state.step_states = {name: "idle" for _, name, _ in pipeline_steps}
+    # Reset pipeline state
+    st.session_state.step_states = {name: "idle" for name, _ in pipeline_steps}
+    st.session_state.last_result = None
+
+    # Import pipeline
+    try:
+        sys.path.insert(0, ".")
+        from exceptions import AuthenticationError, ValidationError
+        from orchestrator import run_pipeline
+    except Exception as e:
+        st.error(f"Import error: {e}")
+        st.stop()
 
     start_time = time.time()
 
-    # Progress bar + status text
-    progress_bar = st.progress(0, text="Starting pipeline…")
-    status_text  = st.empty()
+    # Progress display
+    progress = st.progress(0, text="Initialising pipeline…")
+    status_placeholder = st.empty()
 
-    # ── Import pipeline ──
-    try:
-        sys.path.insert(0, ".")
-        from error_messages import ERROR_MESSAGES
-        from exceptions import AuthenticationError, ValidationError
-        from orchestrator import run_pipeline
-    except Exception as import_err:
-        st.error(f"❌ Failed to import pipeline: {import_err}")
-        st.stop()
-
-    # ── Run with progress updates ──
-    result = None
-    try:
-        # Step 1 — Researcher
-        st.session_state.step_states = {**st.session_state.step_states, "Researcher": "active"}
-        progress_bar.progress(10, text="🔍 Researcher is gathering information…")
-        status_text.markdown(
-            '<span class="status-pill" style="background:rgba(99,102,241,0.15);color:#a5b4fc;border:1px solid rgba(99,102,241,0.25);">⏳ Running Researcher…</span>',
+    def show_status(msg: str):
+        status_placeholder.markdown(
+            f'<div class="status-line"><div class="status-dot-pulse"></div>{msg}</div>',
             unsafe_allow_html=True,
         )
 
+    try:
+        # ── Researcher ──
+        st.session_state.step_states["Researcher"] = "active"
+        progress.progress(15, text="Researcher is gathering information…")
+        show_status("Researcher is gathering facts and data…")
+
         result = run_pipeline(topic)
 
-        # Fake progressive updates (pipeline is synchronous; show steps after completion)
+        # ── Analyst ──
         st.session_state.step_states["Researcher"] = "done"
-        progress_bar.progress(50, text="💡 Analyst is extracting key insights…")
-        st.session_state.step_states["Analyst"] = "done"
-        progress_bar.progress(80, text="✍️ Writer is drafting the final report…")
-        st.session_state.step_states["Writer"] = "done"
-        progress_bar.progress(100, text="✅ Pipeline complete!")
+        st.session_state.step_states["Analyst"] = "active"
+        progress.progress(55, text="Analyst is extracting insights…")
+        show_status("Analyst is identifying key insights…")
 
-    except ValidationError as exc:
-        st.error(f"❌ Invalid topic: {exc}")
+        # ── Writer ──
+        st.session_state.step_states["Analyst"] = "done"
+        st.session_state.step_states["Writer"] = "active"
+        progress.progress(82, text="Writer is composing the report…")
+        show_status("Writer is drafting the final report…")
+
+        st.session_state.step_states["Writer"] = "done"
+        progress.progress(100, text="Done")
+        st.session_state.last_result = result
+
+    except ValidationError as e:
+        st.error(f"Invalid topic: {e}")
         st.stop()
     except AuthenticationError:
         st.error(
-            "❌ **API Key Error** — Could not authenticate with Claude.\n\n"
-            "Make sure `ANTHROPIC_API_KEY` is set in your `.env` file."
+            "**Authentication Error** — could not connect to Claude.\n\n"
+            "Check that `ANTHROPIC_API_KEY` is set in your `.env` file."
         )
         st.stop()
-    except Exception as exc:
-        st.error(f"❌ Unexpected error: {exc}")
+    except Exception as e:
+        st.error(f"Unexpected error: {e}")
         st.stop()
 
     elapsed = round(time.time() - start_time, 1)
-    status_text.empty()
+    status_placeholder.empty()
+    progress.empty()
 
-    # ── Metrics row ──────────────────────────────────────────────────────────
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("⏱️ Total Time", f"{elapsed}s")
-    m2.metric("📋 Research", f"{len(result.research_notes.content)} chars")
-    m3.metric("💡 Insights", f"{len(result.insights.content)} chars")
-    m4.metric("📄 Report", f"{len(result.final_report.content)} chars")
+    # Store elapsed for display
+    st.session_state.elapsed = elapsed
 
-    st.markdown("---")
+# ── Show Results ───────────────────────────────────────────────────────────────
+if st.session_state.last_result:
+    result = st.session_state.last_result
+    elapsed = st.session_state.get("elapsed", "–")
 
-    # ── Result Cards ─────────────────────────────────────────────────────────
+    # Success bar
+    st.markdown(
+        f'<div class="success-bar">✓ &nbsp;Pipeline completed in {elapsed}s — all three agents ran successfully</div>',
+        unsafe_allow_html=True,
+    )
 
-    # Research Notes
+    # Metrics
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("⏱ Time", f"{elapsed}s")
+    col2.metric("📋 Notes", f"{len(result.research_notes.content):,} ch")
+    col3.metric("💡 Insights", f"{len(result.insights.content):,} ch")
+    col4.metric("📄 Report", f"{len(result.final_report.content):,} ch")
+
+    st.markdown("<div style='height:1.5rem'></div>", unsafe_allow_html=True)
+
+    # ── Research Notes card ──
     st.markdown(
         f"""
-        <div class="result-card research">
-            <div class="result-header">
-                <div class="result-icon">📋</div>
-                <div class="result-title">Research Notes</div>
+        <div class="result-card">
+            <div class="result-card-header">
+                <div class="result-card-accent accent-research"></div>
+                <div class="result-card-title">Research Notes</div>
+                <div class="result-card-badge">Researcher Agent</div>
             </div>
-            <div class="result-content">{result.research_notes.content}</div>
+            <div class="result-card-body">
+                <div class="result-card-content">{result.research_notes.content}</div>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    # Key Insights
+    # ── Key Insights card ──
     st.markdown(
         f"""
-        <div class="result-card insights">
-            <div class="result-header">
-                <div class="result-icon">💡</div>
-                <div class="result-title">Key Insights</div>
+        <div class="result-card">
+            <div class="result-card-header">
+                <div class="result-card-accent accent-insights"></div>
+                <div class="result-card-title">Key Insights</div>
+                <div class="result-card-badge">Analyst Agent</div>
             </div>
-            <div class="result-content">{result.insights.content}</div>
+            <div class="result-card-body">
+                <div class="result-card-content">{result.insights.content}</div>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    # Final Report
+    # ── Final Report card ──
     st.markdown(
         f"""
-        <div class="result-card report">
-            <div class="result-header">
-                <div class="result-icon">📄</div>
-                <div class="result-title">Final Report</div>
+        <div class="result-card">
+            <div class="result-card-header">
+                <div class="result-card-accent accent-report"></div>
+                <div class="result-card-title">Final Report</div>
+                <div class="result-card-badge">Writer Agent</div>
             </div>
-            <div class="result-content">{result.final_report.content}</div>
+            <div class="result-card-body">
+                <div class="result-card-content">{result.final_report.content}</div>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    # ── Errors / warnings ────────────────────────────────────────────────────
+    # ── Errors ──
     if result.errors:
-        with st.expander("⚠️ Warnings / Partial Failures"):
+        with st.expander("⚠ Warnings"):
             for err in result.errors:
                 st.warning(err)
-        if result.failed_agents:
-            st.info(f"ℹ️ Failed agents: {', '.join(result.failed_agents)} — see pipeline.log for details.")
 
-    # ── Download button ──────────────────────────────────────────────────────
+    # ── Download ──
+    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+    topic_for_file = st.session_state.history[-1] if st.session_state.history else "report"
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    safe_topic = "".join(c for c in topic[:40] if c.isalnum() or c in " -_").strip()
-    filename = f"report_{safe_topic}_{timestamp}.txt".replace(" ", "_")
+    safe_topic = "".join(c for c in topic_for_file[:40] if c.isalnum() or c in " -_").strip().replace(" ", "_")
+    filename = f"report_{safe_topic}_{timestamp}.txt"
 
     report_text = (
-        f"MULTI-AGENT RESEARCH ASSISTANT — REPORT\n"
+        f"MULTI-AGENT RESEARCH ASSISTANT\n"
         f"{'=' * 60}\n"
-        f"Topic:     {topic}\n"
+        f"Topic:     {topic_for_file}\n"
         f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"Duration:  {elapsed}s\n\n"
         f"{'=' * 60}\n"
@@ -527,15 +758,10 @@ if run_clicked:
         f"{result.final_report.content}\n"
     )
 
-    st.markdown("---")
     st.download_button(
-        label="⬇️  Download Full Report (.txt)",
+        label="⬇  Download Report (.txt)",
         data=report_text,
         file_name=filename,
         mime="text/plain",
-        key="download_btn",
+        key="dl_btn",
     )
-
-    # Success toast
-    if result.is_complete_success:
-        st.success(f"✅ Pipeline completed successfully in {elapsed}s!")
