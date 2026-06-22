@@ -121,15 +121,70 @@ def main() -> None:
 
 def _run_with_progress(topic_input: str):
     """
-    Thin wrapper: run the pipeline and print step-completion messages.
+    Run the pipeline with accurate step-by-step progress messages.
 
-    Because the orchestrator is synchronous (no async), we print the step
-    labels before calling run_pipeline and rely on the agent log messages
-    (in pipeline.log) for detailed progress.
+    Messages are printed BETWEEN actual agent calls so the user sees
+    each step appear as it begins, not all at once upfront.
     """
-    print("[2/3] Analyst     — extracting insights…", flush=True)
+    # Import agents + orchestrator internals to intercept step boundaries
+    from dotenv import load_dotenv
+    from api_client import APIClient
+    from agents import analyst, researcher, writer
+    from models import FinalReport, Insights, PipelineResult, ResearchNotes, Topic
+    from error_messages import ERROR_MESSAGES
+    from exceptions import AgentExecutionError, AuthenticationError
+
+    load_dotenv()
+    topic_obj = Topic(value=topic_input)
+    topic_str = topic_obj.value
+
+    api_client = APIClient()
+    execution_status: dict = {}
+    errors: list = []
+
+    # Step 1 — Researcher (already printed in main)
+    raw_notes = None
+    try:
+        raw_notes = researcher.execute(topic_str, api_client)
+        execution_status["Researcher"] = True
+    except AgentExecutionError as exc:
+        execution_status["Researcher"] = False
+        errors.append(ERROR_MESSAGES["agent_failed"].format(agent_name="Researcher"))
+
+    research_notes_obj = ResearchNotes.from_agent_output(raw_notes)
+
+    # Step 2 — Analyst
+    print("\n[2/3] Analyst     — extracting insights…", flush=True)
+    raw_insights = None
+    try:
+        raw_insights = analyst.execute(research_notes_obj.content, api_client)
+        execution_status["Analyst"] = True
+    except AgentExecutionError as exc:
+        execution_status["Analyst"] = False
+        errors.append(ERROR_MESSAGES["agent_failed"].format(agent_name="Analyst"))
+
+    insights_obj = Insights.from_agent_output(raw_insights)
+
+    # Step 3 — Writer
     print("[3/3] Writer      — generating report…", flush=True)
-    return run_pipeline(topic_input)
+    raw_report = None
+    try:
+        raw_report = writer.execute(topic_str, insights_obj.content, api_client)
+        execution_status["Writer"] = True
+    except AgentExecutionError as exc:
+        execution_status["Writer"] = False
+        errors.append(ERROR_MESSAGES["agent_failed"].format(agent_name="Writer"))
+
+    final_report_obj = FinalReport.from_agent_output(raw_report)
+
+    return PipelineResult(
+        topic=topic_str,
+        research_notes=research_notes_obj,
+        insights=insights_obj,
+        final_report=final_report_obj,
+        execution_status=execution_status,
+        errors=errors,
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
