@@ -25,7 +25,7 @@ load_dotenv()
 # On Streamlit Cloud, secrets are stored in st.secrets.
 # Inject them into os.environ so the rest of the codebase (orchestrator,
 # api_client, tools/search.py) can read them with os.getenv() as usual.
-_CLOUD_KEYS = ["ANTHROPIC_API_KEY", "TAVILY_API_KEY", "MODEL_NAME",
+_CLOUD_KEYS = ["GROQ_API_KEY", "TAVILY_API_KEY", "MODEL_NAME",
                "MAX_TOKENS", "API_TIMEOUT", "LOG_LEVEL"]
 for _k in _CLOUD_KEYS:
     if _k in st.secrets and not os.environ.get(_k):
@@ -530,7 +530,7 @@ with st.sidebar:
     st.markdown(f"""
     <div class="sidebar-footer">
         <div class="sidebar-footer-text">
-            Powered by Claude (Anthropic)<br>
+            Powered by Groq (Llama 3.3-70b)<br>
             Web Search via Tavily API
         </div>
     </div>""", unsafe_allow_html=True)

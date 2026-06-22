@@ -1,16 +1,23 @@
 """
-Claude API client wrapper for the Multi-Agent Research Assistant.
+Groq API client wrapper for the Multi-Agent Research Assistant.
 
-Wraps the Anthropic SDK with:
-- .env loading
-- Structured error mapping to custom exceptions
-- Simple call_claude() interface for all agents
+Replaces the Anthropic/Claude client with Groq (free tier).
+Uses llama-3.3-70b-versatile by default — fast, high quality, free.
+
+Maintains the same call_claude() interface so all three agents
+(researcher, analyst, writer) work without any changes.
 """
 
 import os
 
-import anthropic
 from dotenv import load_dotenv
+from groq import (
+    APIConnectionError,
+    APIStatusError,
+    AuthenticationError as GroqAuthError,
+    Groq,
+    RateLimitError as GroqRateLimitError,
+)
 
 from error_messages import ERROR_MESSAGES
 from exceptions import (
@@ -23,29 +30,36 @@ from utils.logging_config import get_logger
 
 logger = get_logger(__name__)
 
+# Default model — best free model on Groq
+DEFAULT_MODEL    = "llama-3.3-70b-versatile"
+DEFAULT_MAX_TOKENS = 1024
+
 
 class APIClient:
-    """Thin wrapper around the Anthropic SDK for making Claude API calls."""
+    """Thin wrapper around the Groq SDK — drop-in replacement for the old Claude client."""
 
     def __init__(self) -> None:
         """
-        Load the API key from the .env file and initialise the Anthropic client.
+        Load the GROQ_API_KEY from environment and initialise the Groq client.
 
         Raises:
-            AuthenticationError: If ANTHROPIC_API_KEY is missing from environment.
+            AuthenticationError: If GROQ_API_KEY is missing from environment.
         """
         load_dotenv()
-        api_key = os.getenv("ANTHROPIC_API_KEY")
+        api_key = os.getenv("GROQ_API_KEY")
 
         if not api_key:
-            raise AuthenticationError(ERROR_MESSAGES["missing_api_key"])
+            raise AuthenticationError(
+                "GROQ_API_KEY is not set. Add it to your .env file or "
+                "Streamlit Cloud secrets."
+            )
 
-        self._client = anthropic.Anthropic(api_key=api_key)
-        self._model = os.getenv("MODEL_NAME", "claude-3-5-sonnet-20241022")
-        self._max_tokens_default = int(os.getenv("MAX_TOKENS", "1024"))
+        self._client = Groq(api_key=api_key)
+        self._model  = os.getenv("MODEL_NAME", DEFAULT_MODEL)
+        self._max_tokens_default = int(os.getenv("MAX_TOKENS", str(DEFAULT_MAX_TOKENS)))
 
         logger.debug(
-            "APIClient initialised. Model: %s, max_tokens default: %d",
+            "APIClient (Groq) initialised. Model: %s, max_tokens: %d",
             self._model,
             self._max_tokens_default,
         )
@@ -57,15 +71,18 @@ class APIClient:
         max_tokens: int = 0,
     ) -> str:
         """
-        Make a single API call to Claude and return the text response.
+        Make a single API call to Groq and return the text response.
+
+        The method is intentionally named call_claude() so all existing
+        agent code continues to work without modification.
 
         Args:
-            system_prompt: Agent-specific instruction passed as the system role.
-            user_message:  The user-turn message (topic, notes, or combined input).
+            system_prompt: Agent-specific instruction (system role).
+            user_message:  The user-turn message.
             max_tokens:    Maximum response length; defaults to MAX_TOKENS env var.
 
         Returns:
-            Plain text string extracted from the API response.
+            Plain text string from the model.
 
         Raises:
             AuthenticationError: Invalid or missing API key.
@@ -76,8 +93,8 @@ class APIClient:
         effective_max_tokens = max_tokens or self._max_tokens_default
 
         logger.debug(
-            "Calling Claude | model=%s | max_tokens=%d | "
-            "system_prompt_length=%d | user_message_length=%d",
+            "Calling Groq | model=%s | max_tokens=%d | "
+            "system=%d chars | user=%d chars",
             self._model,
             effective_max_tokens,
             len(system_prompt),
@@ -85,55 +102,37 @@ class APIClient:
         )
 
         try:
-            response = self._client.messages.create(
+            response = self._client.chat.completions.create(
                 model=self._model,
                 max_tokens=effective_max_tokens,
-                system=system_prompt,
-                messages=[{"role": "user", "content": user_message}],
+                messages=[
+                    {"role": "system",  "content": system_prompt},
+                    {"role": "user",    "content": user_message},
+                ],
             )
 
-            text = self._extract_text(response)
-            logger.debug("API response received: %d characters", len(text))
+            text = response.choices[0].message.content or ""
+            logger.debug("Groq response: %d characters", len(text))
             return text
 
-        except anthropic.AuthenticationError as exc:
-            logger.error("Authentication failed: %s", exc)
+        except GroqAuthError as exc:
+            logger.error("Groq authentication failed: %s", exc)
             raise AuthenticationError(ERROR_MESSAGES["invalid_api_key"]) from exc
 
-        except anthropic.RateLimitError as exc:
-            logger.error("Rate limit exceeded: %s", exc)
+        except GroqRateLimitError as exc:
+            logger.error("Groq rate limit exceeded: %s", exc)
             raise RateLimitError(ERROR_MESSAGES["rate_limit"]) from exc
 
-        except anthropic.APITimeoutError as exc:
-            logger.error("Request timed out: %s", exc)
-            raise TimeoutError(ERROR_MESSAGES["timeout"]) from exc
-
-        except anthropic.APIConnectionError as exc:
-            logger.error("Network connection error: %s", exc)
+        except APIConnectionError as exc:
+            logger.error("Groq connection error: %s", exc)
             raise NetworkError(ERROR_MESSAGES["network_error"]) from exc
 
-        except anthropic.APIStatusError as exc:
-            logger.error("Unexpected API status error: %s", exc)
+        except APIStatusError as exc:
+            logger.error("Groq API status error %s: %s", exc.status_code, exc.message)
             raise NetworkError(
-                f"Unexpected API error (status {exc.status_code}): {exc.message}"
+                f"Groq API error (status {exc.status_code}): {exc.message}"
             ) from exc
 
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _extract_text(response: anthropic.types.Message) -> str:
-        """
-        Extract the plain text from the first text block in an API response.
-
-        Args:
-            response: A raw Anthropic Message object.
-
-        Returns:
-            Text content, or empty string if none found.
-        """
-        for block in response.content:
-            if block.type == "text":
-                return block.text
-        return ""
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Unexpected Groq error: %s", exc)
+            raise NetworkError(f"Unexpected error: {exc}") from exc
