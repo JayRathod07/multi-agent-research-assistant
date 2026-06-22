@@ -7,12 +7,19 @@
 [![Groq](https://img.shields.io/badge/LLM-Groq%20Llama%203.3-f55036?logo=groq&logoColor=white)](https://groq.com/)
 [![Tests](https://img.shields.io/badge/Tests-74%20passing-22c55e)](tests/)
 [![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Streamlit-ff4b4b?logo=streamlit&logoColor=white)](https://multi-agent-research-assistant-jzdud87bjbvedud7zdm2zz.streamlit.app/)
+
+---
+
+## 🚀 Live Demo
+
+**[👉 Try it now → multi-agent-research-assistant.streamlit.app](https://multi-agent-research-assistant-jzdud87bjbvedud7zdm2zz.streamlit.app/)**
 
 ---
 
 ## Demo
 
-![App Screenshot](docs/screenshot_1.png)
+![App Demo](docs/demo.gif)
 
 ---
 
@@ -155,4 +162,4 @@ pytest tests/ --cov=. --cov-report=html
 
 - ✅ **Phase 1** — CLI pipeline with three agents + full test suite
 - ✅ **Phase 2** — Streamlit Web UI + real web search via Tavily
-- ✅ **Phase 3** — Deployed to Streamlit Community Cloud
+- ✅ **Phase 3** — [Live on Streamlit Community Cloud](https://multi-agent-research-assistant-jzdud87bjbvedud7zdm2zz.streamlit.app/)
