@@ -28,7 +28,7 @@ dist/
 build/
 *.egg-info/
 
-# Streamlit (Phase 2)
-.streamlit/
+# Streamlit — allow config but NEVER commit secrets
+.streamlit/secrets.toml
 
 .early.coverage

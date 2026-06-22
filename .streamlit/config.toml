@@ -1,0 +1,17 @@
+[theme]
+# Primary palette — earthy warm tones
+primaryColor       = "#d4a373"   # Light Bronze — buttons, sliders, focus rings
+backgroundColor    = "#fefae0"   # Cornsilk   — main canvas (light mode default)
+secondaryBackgroundColor = "#faedcd"  # Papaya Whip — sidebar & cards
+textColor          = "#3b2f1e"   # Deep warm brown — body text
+font               = "sans serif"
+
+[server]
+# Safe defaults for Cloud deployment
+headless       = true
+enableCORS     = false
+enableXsrfProtection = true
+
+[browser]
+# Opt out of telemetry collection
+gatherUsageStats = false

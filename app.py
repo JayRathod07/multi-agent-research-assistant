@@ -1,12 +1,16 @@
 """
-Multi-Agent Research Assistant — Streamlit Web UI (Phase 2)
+Multi-Agent Research Assistant — Streamlit Web UI (Phase 2 & 3)
 Warm earthy palette: Tea Green / Beige / Cornsilk / Papaya Whip / Light Bronze
-Light & Dark themes.
+Light & Dark themes. Deployable on Streamlit Community Cloud.
 
-Run with:
+Run locally:
     streamlit run app.py
+
+Deploy:
+    Push to GitHub → connect at share.streamlit.io
 """
 
+import os
 import sys
 import time
 from datetime import datetime
@@ -14,7 +18,18 @@ from datetime import datetime
 import streamlit as st
 from dotenv import load_dotenv
 
+# ── Secret loading: works both locally (.env) and on Streamlit Cloud ──────────
+# Load .env for local development (no-op if file doesn't exist)
 load_dotenv()
+
+# On Streamlit Cloud, secrets are stored in st.secrets.
+# Inject them into os.environ so the rest of the codebase (orchestrator,
+# api_client, tools/search.py) can read them with os.getenv() as usual.
+_CLOUD_KEYS = ["ANTHROPIC_API_KEY", "TAVILY_API_KEY", "MODEL_NAME",
+               "MAX_TOKENS", "API_TIMEOUT", "LOG_LEVEL"]
+for _k in _CLOUD_KEYS:
+    if _k in st.secrets and not os.environ.get(_k):
+        os.environ[_k] = str(st.secrets[_k])
 
 st.set_page_config(
     page_title="Research Assistant",
